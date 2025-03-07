@@ -83,13 +83,22 @@ class LibSerialPort extends ModbusSerialPort {
   @override
   Future<Uint8List> read(int bytes, {Duration? timeout}) async {
     if (_serialPort != null) {
-      return await Isolate.run(() {
-        reading = true;
-        final a = _serialPort!.read(bytes,
-            timeout: timeout == null ? -1 : timeout.inMilliseconds);
-        reading = false;
-        return a;
+      final res = await Isolate.run(() {
+        try {
+          reading = true;
+          final a = _serialPort!.read(bytes,
+              timeout: timeout == null ? -1 : timeout.inMilliseconds);
+          reading = false;
+          return a;
+        } catch (err) {
+          print(err);
+          return null;
+        }
       });
+      if (res == null) {
+        throw Exception("Thread Panicked");
+      }
+      return res;
     }
     reading = false;
     return Uint8List(0);
