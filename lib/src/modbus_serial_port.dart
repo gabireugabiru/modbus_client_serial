@@ -91,7 +91,6 @@ class LibSerialPort extends ModbusSerialPort {
           reading = false;
           return a;
         } catch (err) {
-          print(err);
           return null;
         }
       });
