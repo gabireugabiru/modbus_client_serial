@@ -11,8 +11,10 @@ dependencies:
   libserialport: ^0.3.0+1
   synchronized: ^3.1.0
   modbus_client: 
+    path: "C:/Users/GabrielHenrique/OneDrive - Mega Energia/Documents/fork/modbus_client"
     git:
       url: "https://github.com/gabireugabiru/modbus_client"
+      ref: b412e95c8aa49859e0c6f865a8c3ab9e2aff007d
 
 dev_dependencies:
   lints: ^3.0.0
