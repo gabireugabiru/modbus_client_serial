@@ -7,7 +7,7 @@ class ModbusClientSerialAscii extends ModbusClientSerialAsciiBase {
       {required String portName,
       super.unitId,
       super.connectionMode = ModbusConnectionMode.autoConnectAndKeepConnected,
-      SerialBaudRate baudRate = SerialBaudRate.b19200,
+      ModbusIntEnum baudRate = SerialBaudRate.b19200,
       SerialDataBits dataBits = SerialDataBits.bits8,
       SerialStopBits stopBits = SerialStopBits.one,
       SerialParity parity = SerialParity.none,

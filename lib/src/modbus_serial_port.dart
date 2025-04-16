@@ -9,7 +9,7 @@ import 'package:synchronized/synchronized.dart';
 
 /// serial port client implementation
 class LibSerialPort extends ModbusSerialPort {
-  final SerialBaudRate baudRate;
+  final ModbusIntEnum baudRate;
   final SerialDataBits dataBits;
   final SerialStopBits stopBits;
   final SerialParity parity;
@@ -37,14 +37,15 @@ class LibSerialPort extends ModbusSerialPort {
       await _lock.synchronized(() {
         _serialPort!.close();
         _serialPort!.dispose();
-      });
+      }, timeout: Duration(milliseconds: 500));
       _serialPort = null;
     }
 
     // New connection
     _serialPort = SerialPort(portName);
     if (!_serialPort!.openReadWrite()) {
-      await _lock.synchronized(() => _serialPort!.dispose());
+      await _lock.synchronized(() => _serialPort!.dispose(),
+          timeout: Duration(milliseconds: 500));
       _serialPort = null;
       return false;
     }
@@ -69,14 +70,15 @@ class LibSerialPort extends ModbusSerialPort {
         _serialPort!.close();
         _serialPort!.dispose();
         _serialPort = null;
-      });
+      }, timeout: Duration(milliseconds: 500));
     }
   }
 
   @override
   Future<void> flush() async {
     if (_serialPort != null) {
-      return await _lock.synchronized(() => _serialPort!.flush());
+      return await _lock.synchronized(() => _serialPort!.flush(),
+          timeout: Duration(milliseconds: 500));
     }
   }
 
@@ -106,8 +108,10 @@ class LibSerialPort extends ModbusSerialPort {
   @override
   Future<int> write(Uint8List bytes, {Duration? timeout}) async {
     if (_serialPort != null) {
-      return await _lock.synchronized(() => _serialPort!.write(bytes,
-          timeout: timeout == null ? -1 : timeout.inMilliseconds));
+      return await _lock.synchronized(
+          () => _serialPort!.write(bytes,
+              timeout: timeout == null ? -1 : timeout.inMilliseconds),
+          timeout: timeout);
     }
     return 0;
   }
