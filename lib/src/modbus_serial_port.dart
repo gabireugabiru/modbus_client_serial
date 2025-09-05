@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -85,7 +86,8 @@ class LibSerialPort extends ModbusSerialPort {
   @override
   Future<Uint8List> read(int bytes, {Duration? timeout}) async {
     if (_serialPort != null) {
-      final res = await Isolate.run(() {
+      var res = await Isolate.run(() {
+        Timer(timeout ?? Duration(days: 2), () => Isolate.exit());
         try {
           reading = true;
           final a = _serialPort!.read(bytes,
@@ -96,6 +98,7 @@ class LibSerialPort extends ModbusSerialPort {
           return null;
         }
       });
+
       if (res == null) {
         throw Exception("Thread Panicked");
       }
