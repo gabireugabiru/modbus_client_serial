@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:modbus_client/modbus_client.dart';
 import 'package:modbus_client_serial/modbus_client_serial.dart';
 
-import 'package:libserialport/libserialport.dart';
-import 'package:synchronized/synchronized.dart';
+import 'package:modbus_client_serial/thread/serial.dart';
 
 /// serial port client implementation
 class LibSerialPort extends ModbusSerialPort {
@@ -15,107 +13,92 @@ class LibSerialPort extends ModbusSerialPort {
   final SerialStopBits stopBits;
   final SerialParity parity;
   final SerialFlowControl flowControl;
-  SerialPort? _serialPort;
-  final _lock = Lock();
-  bool reading = false;
-
+  SerialWorker? serial;
   LibSerialPort(this.portName, this.baudRate, this.dataBits, this.stopBits,
       this.parity, this.flowControl);
 
   /// The serial port name
   final String portName;
+  bool _open = false;
+
+  Future<void> enforceSpawned() async {
+    if (serial == null) {
+      serial = SerialWorker();
+      await serial!.spawn(debugName: "Serial Isolate");
+    }
+  }
 
   @override
   String get name => portName;
 
   @override
-  bool get isOpen => _serialPort != null;
+  bool get isOpen => _open;
 
   /// Opens the serial port for reading and writing.
   @override
   Future<bool> open() async {
-    if (_serialPort != null) {
-      await _lock.synchronized(() {
-        _serialPort!.close();
-        _serialPort!.dispose();
-      }, timeout: Duration(milliseconds: 500));
-      _serialPort = null;
+    await enforceSpawned();
+
+    if (await serial!.isOpen()) {
+      await serial!.close();
+      await serial!.dispose();
+      _open = false;
     }
 
     // New connection
-    _serialPort = SerialPort(portName);
-    if (!_serialPort!.openReadWrite()) {
-      await _lock.synchronized(() => _serialPort!.dispose(),
-          timeout: Duration(milliseconds: 500));
-      _serialPort = null;
+    await serial!.setPort(portName);
+
+    if (!await serial!.openReadWrite()) {
+      await serial!.dispose();
+      _open = false;
       return false;
     }
 
     // Update the config for your setup
-    SerialPortConfig serialConfig = SerialPortConfig()
-      ..baudRate = baudRate.intValue
-      ..bits = dataBits.intValue
-      ..stopBits = stopBits.intValue
-      ..parity = parity.intValue
-      ..setFlowControl(flowControl.intValue);
-    _serialPort!.config = serialConfig;
+    await serial!.setConfig(
+        baudRate: baudRate.intValue,
+        bits: dataBits.intValue,
+        stopbits: stopBits.intValue,
+        flowctrl: flowControl.intValue,
+        parity: parity.intValue);
 
+    _open = await serial!.isOpen();
     return true;
   }
 
   @override
   Future<void> close() async {
-    if (_serialPort != null) {
-      await _lock.synchronized(() {
-        while (reading) {}
-        _serialPort!.close();
-        _serialPort!.dispose();
-        _serialPort = null;
-      }, timeout: Duration(milliseconds: 500));
+    await enforceSpawned();
+
+    if (await serial!.isOpen()) {
+      await serial!.close();
+      await serial!.dispose();
     }
+    _open = await serial!.isOpen();
+
+    serial!.closeThread();
+    serial = null;
   }
 
   @override
   Future<void> flush() async {
-    if (_serialPort != null) {
-      return await _lock.synchronized(() => _serialPort!.flush(),
-          timeout: Duration(milliseconds: 500));
-    }
+    await enforceSpawned();
+
+    await serial!.flush();
   }
 
   @override
   Future<Uint8List> read(int bytes, {Duration? timeout}) async {
-    if (_serialPort != null) {
-      var res = await Isolate.run(() {
-        Timer(timeout ?? Duration(days: 2), () => Isolate.exit());
-        try {
-          reading = true;
-          final a = _serialPort!.read(bytes,
-              timeout: timeout == null ? -1 : timeout.inMilliseconds);
-          reading = false;
-          return a;
-        } catch (err) {
-          return null;
-        }
-      });
+    await enforceSpawned();
 
-      if (res == null) {
-        throw Exception("Thread Panicked");
-      }
-      return res;
-    }
-    reading = false;
-    return Uint8List(0);
+    return await serial!.read(bytes, timeout: timeout?.inMilliseconds ?? -1) ??
+        Uint8List(0);
   }
 
   @override
   Future<int> write(Uint8List bytes, {Duration? timeout}) async {
-    if (_serialPort != null) {
-      return await _lock.synchronized(
-          () => _serialPort!.write(bytes,
-              timeout: timeout == null ? -1 : timeout.inMilliseconds),
-          timeout: timeout);
-    }
-    return 0;
+    await enforceSpawned();
+
+    return await serial!.write(bytes, timeout: timeout?.inMilliseconds ?? -1);
   }
 }

@@ -4,13 +4,13 @@ version: 1.4.0
 repository: https://github.com/gabireugabiru/modbus_client_serial
 publish_to: none
 environment:
-  sdk: '>=2.19.0 <4.0.0'
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   logging: ^1.2.0
   libserialport: ^0.3.0+1
   synchronized: ^3.1.0
-  modbus_client: 
+  modbus_client:
     git:
       url: "https://github.com/gabireugabiru/modbus_client"
       ref: b412e95c8aa49859e0c6f865a8c3ab9e2aff007d
